@@ -93,17 +93,17 @@ export class AwsTenantIsolationStack extends Stack {
       })
     );
 
-    runner.role?.attachInlinePolicy(
-      new iam.Policy(this, "runnerInlinePolicy", {
-        statements: [
-          new iam.PolicyStatement({
-            effect: iam.Effect.ALLOW,
-            actions: ["sts:AssumeRole"],
-            resources: [tenantDataAccessGrantRole.roleArn],
-          }),
-        ],
-      })
-    );
+    // runner.role?.attachInlinePolicy(
+    //   new iam.Policy(this, "runnerInlinePolicy", {
+    //     statements: [
+    //       new iam.PolicyStatement({
+    //         effect: iam.Effect.ALLOW,
+    //         actions: ["sts:AssumeRole"],
+    //         resources: [tenantDataAccessGrantRole.roleArn],
+    //       }),
+    //     ],
+    //   })
+    // );
 
     // runner.role?.grantAssumeRole(runner.role);
 
