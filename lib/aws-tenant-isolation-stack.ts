@@ -65,12 +65,23 @@ export class AwsTenantIsolationStack extends Stack {
     });
     runner.addEnvironment("ASSUMED_BY_ROLE_ARN", runner.role?.roleArn!);
 
+    const runnerPrincipal = new iam.ArnPrincipal(runner.role?.roleArn!);
+
+    const taggableRunnerPrincipal = new iam.SessionTagsPrincipal(
+      runnerPrincipal
+    );
+    taggableRunnerPrincipal.withConditions({
+      StringLike: {
+        "aws:RequestTag/TenantID": "*",
+      },
+    });
+
     const tenantDataAccessGrantRole = new iam.Role(
       this,
       `${this.stackName}TenantDataAccessGrantRole`,
       {
         roleName: `${this.stackName}TenantDataAccessGrantRole`,
-        assumedBy: new iam.ArnPrincipal(runner.role?.roleArn!),
+        assumedBy: taggableRunnerPrincipal,
       }
     );
     runner.addEnvironment(
@@ -81,17 +92,42 @@ export class AwsTenantIsolationStack extends Stack {
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: [
-          "dynamodb:BatchGetItem",
-          "dynamodb:BatchWriteItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
+          // "dynamodb:BatchGetItem",
+          // "dynamodb:BatchWriteItem",
+          // "dynamodb:DeleteItem",
+          // "dynamodb:GetItem",
+          // "dynamodb:PutItem",
           "dynamodb:Query",
-          "dynamodb:UpdateItem",
+          // "dynamodb:UpdateItem",
         ],
         resources: [testTable.tableArn],
+        conditions: {
+          "ForAllValues:StringLike": {
+            "dynamodb:LeadingKeys": ["${aws:PrincipalTag/TenantID}"],
+          },
+        },
       })
     );
+
+    // tenantDataAccessGrantRole.attachInlinePolicy(
+    //   new iam.Policy(this, "customTrustPolicy", {
+    //     policyName: "customInlinePolicy",
+    //     document: new iam.PolicyDocument({
+    //       statements: [
+    //         new iam.PolicyStatement({
+    //           effect: iam.Effect.ALLOW,
+    //           principals: [runnerPrincipal],
+    //           actions: ["sts:TagSession"],
+    //           conditions: {
+    //             StringLike: {
+    //               "aws:RequestTag/TenantID": "*",
+    //             },
+    //           },
+    //         }),
+    //       ],
+    //     }),
+    //   })
+    // );
 
     // runner.role?.attachInlinePolicy(
     //   new iam.Policy(this, "runnerInlinePolicy", {

@@ -67,21 +67,21 @@ export const handler = async (
   //   "Action": "sts:AssumeRole"
   // },
 
-  const policy = {
-    Version: "2012-10-17",
-    Statement: [
-      {
-        Effect: "Allow",
-        Action: ["dynamodb:Query"],
-        Resource: [tableArn],
-        Condition: {
-          "ForAllValues:StringLike": {
-            "dynamodb:LeadingKeys": ["beta"],
-          },
-        },
-      },
-    ],
-  };
+  // const policy = {
+  //   Version: "2012-10-17",
+  //   Statement: [
+  //     {
+  //       Effect: "Allow",
+  //       Action: ["dynamodb:Query"],
+  //       Resource: [tableArn],
+  //       Condition: {
+  //         "ForAllValues:StringLike": {
+  //           "dynamodb:LeadingKeys": ["${aws:PrincipalTag/TenantID}"],
+  //         },
+  //       },
+  //     },
+  //   ],
+  // };
 
   const sts = new STSClient({});
   const session = await sts.send(
@@ -89,13 +89,13 @@ export const handler = async (
       RoleArn: tempSessionRoleARN,
       RoleSessionName: "TempSessionName",
       DurationSeconds: 900,
-      // Tags: [
-      //   {
-      //     Key: "TenantID",
-      //     Value: "alpha",
-      //   },
-      // ],
-      Policy: JSON.stringify(policy),
+      Tags: [
+        {
+          Key: "TenantID",
+          Value: "alpha",
+        },
+      ],
+      // Policy: JSON.stringify(policy),
     })
   );
 
