@@ -65,8 +65,6 @@ export class AwsTenantIsolationStack extends Stack {
         serviceToken: customResourceProvider.serviceToken,
       }
     );
-    customResource.node.addDependency(dynamodbTable);
-    customResource.node.addDependency(s3Bucket);
 
     const readDynamoWithLeadingKeysPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
