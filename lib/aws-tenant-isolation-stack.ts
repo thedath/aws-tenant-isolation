@@ -45,34 +45,9 @@ export class AwsTenantIsolationStack extends Stack {
         assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
       }
     );
-    assumedCfnEventHandlerRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ["dynamodb:PutItem"],
-        resources: [dynamodbTable.tableArn],
-      })
-    );
-    // assumedCfnEventHandlerRole.addToPolicy(
-    //   new iam.PolicyStatement({
-    //     effect: iam.Effect.ALLOW,
-    //     actions: ["dynamodb:PutItem"],
-    //     resources: ["arn:aws:dynamodb:*"],
-    //   })
-    // );
-    assumedCfnEventHandlerRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ["s3:PutObject"],
-        resources: [s3Bucket.bucketArn],
-      })
-    );
-    // assumedCfnEventHandlerRole.addToPolicy(
-    //   new iam.PolicyStatement({
-    //     effect: iam.Effect.ALLOW,
-    //     actions: ["s3:PutObject"],
-    //     resources: ["arn:aws:s3:*"],
-    //   })
-    // );
+
+    dynamodbTable.grantWriteData(assumedCfnEventHandlerRole);
+    s3Bucket.grantWrite(assumedCfnEventHandlerRole);
 
     const cfnEventHandler = new lambda.Function(
       this,
@@ -82,7 +57,6 @@ export class AwsTenantIsolationStack extends Stack {
         runtime: lambda.Runtime.NODEJS_14_X,
         handler: "cfnEventHandler.handler",
         code: lambda.Code.fromAsset("lambda"),
-        // role: assumedCfnEventHandlerRole,
       }
     );
     dynamodbTable.grantWriteData(cfnEventHandler);
