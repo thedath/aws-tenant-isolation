@@ -4,12 +4,13 @@ import {
   aws_iam as iam,
   aws_lambda as lambda,
   aws_s3 as s3,
+  CustomResource,
+  custom_resources as cr,
   Stack,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import RoleAssumingLambda from "./RoleAssumingLambda";
 import getConstants from "../lambda/constants";
-
+import RoleAssumingLambda from "./RoleAssumingLambda";
 export class AwsTenantIsolationStack extends Stack {
   readonly constants;
 
@@ -29,6 +30,37 @@ export class AwsTenantIsolationStack extends Stack {
         type: dynamodb.AttributeType.STRING,
       },
     });
+
+    const s3Bucket = new s3.Bucket(this, this.constants.S3_BUCKET_NAME, {
+      bucketName: this.constants.S3_BUCKET_NAME,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+    });
+
+    const cfnEventHandler = new lambda.Function(
+      this,
+      this.constants.CFN_EVENT_HANDLER_LAMBDA_NAME,
+      {
+        functionName: this.constants.CFN_EVENT_HANDLER_LAMBDA_NAME,
+        runtime: lambda.Runtime.NODEJS_14_X,
+        handler: "cfnEventHandler.handler",
+        code: lambda.Code.fromAsset("lambda"),
+      }
+    );
+    dynamodbTable.grantWriteData(cfnEventHandler);
+    s3Bucket.grantPut(cfnEventHandler);
+
+    const customResourceProvider = new cr.Provider(this, "", {
+      onEventHandler: cfnEventHandler,
+    });
+    const customResource = new CustomResource(
+      this,
+      "DataInitializerCustomResource",
+      {
+        serviceToken: customResourceProvider.serviceToken,
+      }
+    );
+    customResource.node.addDependency(dynamodbTable);
+    customResource.node.addDependency(s3Bucket);
 
     const readDynamoWithLeadingKeysPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -56,11 +88,6 @@ export class AwsTenantIsolationStack extends Stack {
         sessionTag: this.constants.TABLE_PARTITION_KEY,
       }
     );
-
-    const s3Bucket = new s3.Bucket(this, this.constants.S3_BUCKET_NAME, {
-      bucketName: this.constants.S3_BUCKET_NAME,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-    });
 
     const getBucketObjectWithPrefix = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,

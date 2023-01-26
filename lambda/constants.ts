@@ -2,6 +2,7 @@ export default function getConstants(stackName = "") {
   return {
     DYNAMODB_READ_LAMBDA_NAME: `${stackName}ReadDynamodbLambda`,
     S3_BUCKET_READ_LAMBDA_NAME: `${stackName}ReadS3BucketLambda`,
+    CFN_EVENT_HANDLER_LAMBDA_NAME: `${stackName}CfnEventHandler`,
 
     ASSUMED_ROLE_ARN_ENV_KEY_1: "DYNAMODB_READING_ROLE_ARN",
     ASSUMED_ROLE_ARN_ENV_KEY_2: "S3_BUCKET_READING_ROLE_ARN",
