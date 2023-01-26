@@ -1,7 +1,7 @@
 import { Context, APIGatewayProxyResult, APIGatewayEvent } from "aws-lambda";
 import { DynamoDBClient, QueryCommand } from "@aws-sdk/client-dynamodb";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
-import getConstants from "./constants";
+import constants from "./constants";
 
 export const handler = async (
   event: APIGatewayEvent,
@@ -9,8 +9,6 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   console.log(`Event: ${JSON.stringify(event, null, 2)}`);
   console.log(`Context: ${JSON.stringify(context, null, 2)}`);
-
-  const constants = getConstants();
 
   if (!process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_1]) {
     return {

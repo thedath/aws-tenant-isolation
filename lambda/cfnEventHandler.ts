@@ -5,7 +5,7 @@ import {
   CloudFormationCustomResourceHandler,
   Context,
 } from "aws-lambda";
-import getConstants from "./constants";
+import constants from "./constants";
 
 export const handler: CloudFormationCustomResourceHandler = async (
   event: CloudFormationCustomResourceEvent,
@@ -13,8 +13,6 @@ export const handler: CloudFormationCustomResourceHandler = async (
 ): Promise<void> => {
   console.log(`Event: ${JSON.stringify(event, null, 2)}`);
   console.log(`Context: ${JSON.stringify(context, null, 2)}`);
-
-  const constants = getConstants();
 
   if (event.RequestType !== "Create") {
     console.log("--NOT_A_CREATE--", "Event type: " + event.RequestType);
@@ -66,7 +64,7 @@ export const handler: CloudFormationCustomResourceHandler = async (
 
     console.log("--DYNAMO_RESPONSE--", dynamoResponse);
 
-    const s3Response = Promise.all([
+    const s3Response = await Promise.all([
       s3Client.send(
         new PutObjectCommand({
           Bucket: constants.S3_BUCKET_NAME,
