@@ -17,87 +17,88 @@ export const handler: CloudFormationCustomResourceHandler = async (
   const constants = getConstants();
 
   if (event.RequestType !== "Create") {
-    console.log(
-      constants.CFN_EVENT_HANDLER_LAMBDA_NAME,
-      "Event type: " + event.RequestType
-    );
+    console.log("--NOT_A_CREATE--", "Event type: " + event.RequestType);
     return;
   }
 
   try {
     const dynamodbClient = new DynamoDBClient({});
-
-    dynamodbClient.send(
-      new PutItemCommand({
-        TableName: constants.TABLE_NAME,
-        Item: {
-          [constants.TABLE_PARTITION_KEY]: { S: "alpha" },
-          [constants.TABLE_SORT_KEY]: { S: "alpha1@alpha1.com" },
-        },
-      })
-    );
-    dynamodbClient.send(
-      new PutItemCommand({
-        TableName: constants.TABLE_NAME,
-        Item: {
-          [constants.TABLE_PARTITION_KEY]: { S: "alpha" },
-          [constants.TABLE_SORT_KEY]: { S: "alpha2@alpha2.com" },
-        },
-      })
-    );
-    dynamodbClient.send(
-      new PutItemCommand({
-        TableName: constants.TABLE_NAME,
-        Item: {
-          [constants.TABLE_PARTITION_KEY]: { S: "beta" },
-          [constants.TABLE_SORT_KEY]: { S: "beta1@beta1.com" },
-        },
-      })
-    );
-    dynamodbClient.send(
-      new PutItemCommand({
-        TableName: constants.TABLE_NAME,
-        Item: {
-          [constants.TABLE_PARTITION_KEY]: { S: "beta" },
-          [constants.TABLE_SORT_KEY]: { S: "beta2@beta2.com" },
-        },
-      })
-    );
-
     const s3Client = new S3Client({});
 
-    s3Client.send(
-      new PutObjectCommand({
-        Bucket: constants.S3_BUCKET_NAME,
-        Key: "alpha/fileName1.txt",
-        Body: "Test content 1",
-      })
-    );
-    s3Client.send(
-      new PutObjectCommand({
-        Bucket: constants.S3_BUCKET_NAME,
-        Key: "alpha/fileName2.txt",
-        Body: "Test content 2",
-      })
-    );
-    s3Client.send(
-      new PutObjectCommand({
-        Bucket: constants.S3_BUCKET_NAME,
-        Key: "beta/fileName3.txt",
-        Body: "Test content 3",
-      })
-    );
-    s3Client.send(
-      new PutObjectCommand({
-        Bucket: constants.S3_BUCKET_NAME,
-        Key: "beta/fileName4.txt",
-        Body: "Test content 4",
-      })
-    );
+    const dynamoResponse = await Promise.all([
+      dynamodbClient.send(
+        new PutItemCommand({
+          TableName: constants.TABLE_NAME,
+          Item: {
+            [constants.TABLE_PARTITION_KEY]: { S: "alpha" },
+            [constants.TABLE_SORT_KEY]: { S: "alpha1@alpha1.com" },
+          },
+        })
+      ),
+      dynamodbClient.send(
+        new PutItemCommand({
+          TableName: constants.TABLE_NAME,
+          Item: {
+            [constants.TABLE_PARTITION_KEY]: { S: "alpha" },
+            [constants.TABLE_SORT_KEY]: { S: "alpha2@alpha2.com" },
+          },
+        })
+      ),
+      dynamodbClient.send(
+        new PutItemCommand({
+          TableName: constants.TABLE_NAME,
+          Item: {
+            [constants.TABLE_PARTITION_KEY]: { S: "beta" },
+            [constants.TABLE_SORT_KEY]: { S: "beta1@beta1.com" },
+          },
+        })
+      ),
+      dynamodbClient.send(
+        new PutItemCommand({
+          TableName: constants.TABLE_NAME,
+          Item: {
+            [constants.TABLE_PARTITION_KEY]: { S: "beta" },
+            [constants.TABLE_SORT_KEY]: { S: "beta2@beta2.com" },
+          },
+        })
+      ),
+    ]);
+
+    console.log("--DYNAMO_RESPONSE--", dynamoResponse);
+
+    const s3Response = Promise.all([
+      s3Client.send(
+        new PutObjectCommand({
+          Bucket: constants.S3_BUCKET_NAME,
+          Key: "alpha/fileName1.txt",
+          Body: "Test content 1",
+        })
+      ),
+      s3Client.send(
+        new PutObjectCommand({
+          Bucket: constants.S3_BUCKET_NAME,
+          Key: "alpha/fileName2.txt",
+          Body: "Test content 2",
+        })
+      ),
+      s3Client.send(
+        new PutObjectCommand({
+          Bucket: constants.S3_BUCKET_NAME,
+          Key: "beta/fileName3.txt",
+          Body: "Test content 3",
+        })
+      ),
+      s3Client.send(
+        new PutObjectCommand({
+          Bucket: constants.S3_BUCKET_NAME,
+          Key: "beta/fileName4.txt",
+          Body: "Test content 4",
+        })
+      ),
+    ]);
+
+    console.log("--S3_RESPONSE--", s3Response);
   } catch (error) {
-    console.error(
-      constants.CFN_EVENT_HANDLER_LAMBDA_NAME,
-      JSON.stringify(error)
-    );
+    console.error("--ERROR-", JSON.stringify(error));
   }
 };
