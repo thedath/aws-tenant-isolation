@@ -1,0 +1,18 @@
+export default {
+  DYNAMODB_READ_LAMBDA_NAME: "ReadDynamodbLambda",
+  S3_BUCKET_READ_LAMBDA_NAME: "ReadS3BucketLambda",
+  CFN_EVENT_HANDLER_LAMBDA_NAME: "CfnEventHandler",
+  ASSUMED_CFN_EVENT_HANDLER_ROLE_NAME: "CfnEventHandlerRole",
+
+  ASSUMED_ROLE_ARN_ENV_KEY_1: "DYNAMODB_READING_ROLE_ARN",
+  ASSUMED_ROLE_ARN_ENV_KEY_2: "S3_BUCKET_READING_ROLE_ARN",
+
+  SESSION_TAG_KEY: "TenantId",
+  SESSION_TAG_PRE_DEFINED_VALUE: "alpha",
+
+  TABLE_NAME: "TestTable",
+  TABLE_PARTITION_KEY: "TenantId",
+  TABLE_SORT_KEY: "Email",
+
+  S3_BUCKET_NAME: "tenantisolationtestbucket2023",
+};

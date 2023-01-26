@@ -1,6 +1,7 @@
 import { Context, APIGatewayProxyResult, APIGatewayEvent } from "aws-lambda";
 import { DynamoDBClient, QueryCommand } from "@aws-sdk/client-dynamodb";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
+import constants from "./constants";
 
 export const handler = async (
   event: APIGatewayEvent,
@@ -9,27 +10,7 @@ export const handler = async (
   console.log(`Event: ${JSON.stringify(event, null, 2)}`);
   console.log(`Context: ${JSON.stringify(context, null, 2)}`);
 
-  if (!process.env.TABLE_NAME) {
-    return {
-      statusCode: 403,
-      body: JSON.stringify({
-        message: "Table name not found",
-      }),
-    };
-  }
-  const tableName = process.env.TABLE_NAME;
-
-  if (!process.env.TABLE_ARN) {
-    return {
-      statusCode: 403,
-      body: JSON.stringify({
-        message: "Table name not found",
-      }),
-    };
-  }
-  const tableArn = process.env.TABLE_ARN;
-
-  if (!process.env.ASSUMED_BY_ROLE_ARN) {
+  if (!process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_1]) {
     return {
       statusCode: 403,
       body: JSON.stringify({
@@ -37,17 +18,7 @@ export const handler = async (
       }),
     };
   }
-  const assumedByRoleARN = process.env.ASSUMED_BY_ROLE_ARN;
-
-  if (!process.env.TEMP_SESSION_ROLE_ARN) {
-    return {
-      statusCode: 403,
-      body: JSON.stringify({
-        message: "Access role not found",
-      }),
-    };
-  }
-  const tempSessionRoleARN = process.env.TEMP_SESSION_ROLE_ARN;
+  const assumedRoleARN = process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_1];
 
   const tenantId = event.queryStringParameters?.["tenantId"];
   if (!tenantId) {
@@ -59,47 +30,21 @@ export const handler = async (
     };
   }
 
-  // {
-  //   "Effect": "Allow",
-  //   "Principal": {
-  //     "AWS": "${assumedByRoleARN}"
-  //   },
-  //   "Action": "sts:AssumeRole"
-  // },
-
-  // const policy = {
-  //   Version: "2012-10-17",
-  //   Statement: [
-  //     {
-  //       Effect: "Allow",
-  //       Action: ["dynamodb:Query"],
-  //       Resource: [tableArn],
-  //       Condition: {
-  //         "ForAllValues:StringLike": {
-  //           "dynamodb:LeadingKeys": ["${aws:PrincipalTag/TenantID}"],
-  //         },
-  //       },
-  //     },
-  //   ],
-  // };
-
   const sts = new STSClient({});
   const session = await sts.send(
     new AssumeRoleCommand({
-      RoleArn: tempSessionRoleARN,
+      RoleArn: assumedRoleARN,
       RoleSessionName: "TempSessionName",
       DurationSeconds: 900,
       Tags: [
         {
-          Key: "TenantID",
-          Value: "alpha",
+          Key: constants.SESSION_TAG_KEY,
+          Value: constants.SESSION_TAG_PRE_DEFINED_VALUE,
         },
       ],
-      // Policy: JSON.stringify(policy),
     })
   );
 
-  // Configure the AWS SDK
   const dynamoDb = new DynamoDBClient({
     credentials: {
       accessKeyId: session.Credentials?.AccessKeyId!,
@@ -108,13 +53,15 @@ export const handler = async (
     },
   });
 
+  const tableName = constants.TABLE_NAME;
+
   try {
     const result = await dynamoDb.send(
       new QueryCommand({
         TableName: tableName,
         KeyConditionExpression: "#TIDkey = :TIDvalue",
         ExpressionAttributeNames: {
-          "#TIDkey": "TenantID",
+          "#TIDkey": constants.TABLE_PARTITION_KEY,
         },
         ExpressionAttributeValues: {
           ":TIDvalue": {
