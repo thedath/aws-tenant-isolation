@@ -1,205 +1,120 @@
 import {
-  Stack,
-  StackProps,
-  aws_dynamodb as dynamodb,
-  aws_lambda as lambda,
   aws_apigateway as apiGateway,
+  aws_dynamodb as dynamodb,
   aws_iam as iam,
-  CfnOutput,
+  aws_lambda as lambda,
+  aws_s3 as s3,
+  Stack,
 } from "aws-cdk-lib";
-import { AttributeType } from "aws-cdk-lib/aws-dynamodb";
 import { Construct } from "constructs";
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
-
-interface AwsTenantIsolationStackProps extends StackProps {
-  account: string;
-}
+import RoleAssumingLambda from "./RoleAssumingLambda";
+import getConstants from "../lambda/constants";
 
 export class AwsTenantIsolationStack extends Stack {
-  constructor(
-    scope: Construct,
-    id: string,
-    props: AwsTenantIsolationStackProps
-  ) {
-    super(scope, id, props);
-    props;
+  readonly constants;
 
-    // Define the IAM role
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
 
-    const testTable = new dynamodb.Table(this, `${this.stackName}testTable`, {
-      tableName: `${this.stackName}testTable`,
-      partitionKey: { name: "TenantID", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "Timestamp", type: dynamodb.AttributeType.STRING },
-    });
+    this.constants = getConstants(this.stackName);
 
-    // const dynamodbReadByTenantIDPolicy = new iam.PolicyStatement({
-    //   effect: iam.Effect.ALLOW,
-    //   actions: [
-    //     "dynamodb:BatchGetItem",
-    //     "dynamodb:BatchWriteItem",
-    //     "dynamodb:DeleteItem",
-    //     "dynamodb:GetItem",
-    //     "dynamodb:PutItem",
-    //     "dynamodb:Query",
-    //     "dynamodb:UpdateItem",
-    //   ],
-    //   resources: [testTable.tableArn],
-    //   conditions: {
-    //     "ForAllValues:StringEquals": {
-    //       "dynamodb:LeadingKeys": ["${aws:PrincipalTag/TenantID}"],
-    //     },
-    //   },
-
-    // });
-    // tenantDataAccessGrantRole.addToPolicy(dynamodbReadByTenantIDPolicy);
-
-    const runner = new lambda.Function(this, `${this.stackName}RunnerLambda`, {
-      functionName: `${this.stackName}RunnerLambda`,
-      runtime: lambda.Runtime.NODEJS_14_X,
-      handler: "runner.handler",
-      code: lambda.Code.fromAsset("lambda"),
-      environment: {
-        TABLE_NAME: testTable.tableName,
-        TABLE_ARN: testTable.tableArn,
+    const dynamodbTable = new dynamodb.Table(this, this.constants.TABLE_NAME, {
+      tableName: this.constants.TABLE_NAME,
+      partitionKey: {
+        name: this.constants.TABLE_PARTITION_KEY,
+        type: dynamodb.AttributeType.STRING,
       },
-    });
-    runner.addEnvironment("ASSUMED_BY_ROLE_ARN", runner.role?.roleArn!);
-
-    const runnerPrincipal = new iam.ArnPrincipal(runner.role?.roleArn!);
-
-    const taggableRunnerPrincipal = new iam.SessionTagsPrincipal(
-      runnerPrincipal
-    );
-    taggableRunnerPrincipal.withConditions({
-      StringLike: {
-        "aws:RequestTag/TenantID": "*",
+      sortKey: {
+        name: this.constants.TABLE_SORT_KEY,
+        type: dynamodb.AttributeType.STRING,
       },
     });
 
-    const tenantDataAccessGrantRole = new iam.Role(
+    const dynamodbReadLambda = new lambda.Function(
       this,
-      `${this.stackName}TenantDataAccessGrantRole`,
+      this.constants.DYNAMODB_READ_LAMBDA_NAME,
       {
-        roleName: `${this.stackName}TenantDataAccessGrantRole`,
-        assumedBy: taggableRunnerPrincipal,
+        functionName: this.constants.DYNAMODB_READ_LAMBDA_NAME,
+        runtime: lambda.Runtime.NODEJS_14_X,
+        handler: "dynamodbReader.handler",
+        code: lambda.Code.fromAsset("lambda"),
       }
     );
-    runner.addEnvironment(
-      "TEMP_SESSION_ROLE_ARN",
-      tenantDataAccessGrantRole.roleArn
-    );
-    tenantDataAccessGrantRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          // "dynamodb:BatchGetItem",
-          // "dynamodb:BatchWriteItem",
-          // "dynamodb:DeleteItem",
-          // "dynamodb:GetItem",
-          // "dynamodb:PutItem",
-          "dynamodb:Query",
-          // "dynamodb:UpdateItem",
-        ],
-        resources: [testTable.tableArn],
-        conditions: {
-          "ForAllValues:StringLike": {
-            "dynamodb:LeadingKeys": ["${aws:PrincipalTag/TenantID}"],
-          },
+
+    const readDynamoWithLeadingKeysPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["dynamodb:Query"],
+      resources: [dynamodbTable.tableArn],
+      conditions: {
+        "ForAllValues:StringLike": {
+          "dynamodb:LeadingKeys": [
+            `\${aws:PrincipalTag/${this.constants.SESSION_TAG_KEY}}`,
+          ],
         },
-      })
+      },
+    });
+
+    new RoleAssumingLambda(
+      this,
+      `${this.stackName}DynamodbReaderRoleAssumingLambda`,
+      {
+        lambdaFunction: dynamodbReadLambda,
+        assumedRolePolicyStatements: [readDynamoWithLeadingKeysPolicy],
+        assumedRoleArnEnvKey: this.constants.ASSUMED_ROLE_ARN_ENV_KEY_A,
+        sessionTag: this.constants.TABLE_PARTITION_KEY,
+      }
     );
 
-    // tenantDataAccessGrantRole.attachInlinePolicy(
-    //   new iam.Policy(this, "customTrustPolicy", {
-    //     policyName: "customInlinePolicy",
-    //     document: new iam.PolicyDocument({
-    //       statements: [
-    //         new iam.PolicyStatement({
-    //           effect: iam.Effect.ALLOW,
-    //           principals: [runnerPrincipal],
-    //           actions: ["sts:TagSession"],
-    //           conditions: {
-    //             StringLike: {
-    //               "aws:RequestTag/TenantID": "*",
-    //             },
-    //           },
-    //         }),
-    //       ],
-    //     }),
-    //   })
-    // );
-
-    // runner.role?.attachInlinePolicy(
-    //   new iam.Policy(this, "runnerInlinePolicy", {
-    //     statements: [
-    //       new iam.PolicyStatement({
-    //         effect: iam.Effect.ALLOW,
-    //         actions: ["sts:AssumeRole"],
-    //         resources: [tenantDataAccessGrantRole.roleArn],
-    //       }),
-    //     ],
-    //   })
-    // );
-
-    // runner.role?.grantAssumeRole(runner.role);
-
-    // runner.role?.addToPrincipalPolicy(
-    //   new iam.PolicyStatement({
-    //     effect: iam.Effect.ALLOW,
-    //     actions: ["sts:TagSession"],
-    //     conditions: {
-    //       StringLike: {
-    //         "aws:RequestTag/TenantID": "*",
-    //       },
-    //     },
-    //   })
-    // );
-
-    // const tenantIsolationInitRole = new iam.Role(
-    //   this,
-    //   `${this.stackName}TenantIsolationInitRole`,
-    //   {
-    //     roleName: `${this.stackName}TenantIsolationInitRole`,
-    //     assumedBy: new iam.ArnPrincipal(runner.role?.roleArn!),
-    //   }
-    // );
-
-    // Define the policy statements
-    // const assumeRolePolicyStatement = new iam.PolicyStatement({
-    //   effect: iam.Effect.ALLOW,
-    //   actions: ["sts:AssumeRole"],
-    //   // principals: [new iam.ArnPrincipal("lambda.amazonaws.com")],
-    // });
-    // const tagSessionPolicyStatement = new iam.PolicyStatement({
-    //   effect: iam.Effect.ALLOW,
-    //   actions: ["sts:TagSession"],
-    //   // principals: [new iam.ServicePrincipal("lambda.amazonaws.com")],
-    //   conditions: {
-    //     StringLike: {
-    //       "aws:RequestTag/TenantID": "*",
-    //     },
-    //   },
-    // });
-    // tenantIsolationInitRole.addToPolicy(assumeRolePolicyStatement);
-    // tenantIsolationInitRole.addToPolicy(tagSessionPolicyStatement);
-
-    new CfnOutput(this, "RoleOutput", {
-      exportName: "RoleOutput",
-      value: runner.role?.roleArn || "No name",
+    const s3Bucket = new s3.Bucket(this, this.constants.S3_BUCKET_NAME, {
+      bucketName: this.constants.S3_BUCKET_NAME,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
     });
 
-    new CfnOutput(this, "RolePolicy", {
-      exportName: "RolePolicy",
-      value:
-        JSON.stringify(runner.role?.policyFragment.principalJson) || "No name",
+    const s3BucketReadLambda = new lambda.Function(
+      this,
+      this.constants.S3_BUCKET_READ_LAMBDA_NAME,
+      {
+        functionName: this.constants.S3_BUCKET_READ_LAMBDA_NAME,
+        runtime: lambda.Runtime.NODEJS_14_X,
+        handler: "b.handler",
+        code: lambda.Code.fromAsset("lambda"),
+      }
+    );
+
+    const getBucketObjectWithPrefix = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["s3:ListBucket"],
+      resources: [s3Bucket.bucketArn],
+      conditions: {
+        StringEquals: {
+          "s3:prefix": `\${aws:PrincipalTag/${this.constants.SESSION_TAG_KEY}}`,
+        },
+      },
     });
+
+    new RoleAssumingLambda(
+      this,
+      `${this.stackName}S3BucketReaderRoleAssumingLambda`,
+      {
+        lambdaFunction: s3BucketReadLambda,
+        assumedRolePolicyStatements: [getBucketObjectWithPrefix],
+        assumedRoleArnEnvKey: this.constants.ASSUMED_ROLE_ARN_ENV_KEY_B,
+        sessionTag: this.constants.S3_BUCKET_NAME,
+      }
+    );
 
     const api = new apiGateway.RestApi(this, `${this.stackName}API`, {
       restApiName: `${this.stackName}API`,
     });
-    api.root.addResource("test");
+
+    api.root.addResource("readDynamodb");
     api.root
-      .getResource("test")
-      ?.addMethod("GET", new apiGateway.LambdaIntegration(runner));
+      .getResource("readDynamodb")
+      ?.addMethod("GET", new apiGateway.LambdaIntegration(dynamodbReadLambda));
+
+    api.root.addResource("readS3Bucket");
+    api.root
+      .getResource("readS3Bucket")
+      ?.addMethod("GET", new apiGateway.LambdaIntegration(s3BucketReadLambda));
   }
 }
