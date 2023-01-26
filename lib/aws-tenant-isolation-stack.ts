@@ -30,17 +30,6 @@ export class AwsTenantIsolationStack extends Stack {
       },
     });
 
-    const dynamodbReadLambda = new lambda.Function(
-      this,
-      this.constants.DYNAMODB_READ_LAMBDA_NAME,
-      {
-        functionName: this.constants.DYNAMODB_READ_LAMBDA_NAME,
-        runtime: lambda.Runtime.NODEJS_14_X,
-        handler: "dynamodbReader.handler",
-        code: lambda.Code.fromAsset("lambda"),
-      }
-    );
-
     const readDynamoWithLeadingKeysPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ["dynamodb:Query"],
@@ -54,13 +43,16 @@ export class AwsTenantIsolationStack extends Stack {
       },
     });
 
-    new RoleAssumingLambda(
+    const dynamodbReadLambda = new RoleAssumingLambda(
       this,
-      `${this.stackName}DynamodbReaderRoleAssumingLambda`,
+      this.constants.DYNAMODB_READ_LAMBDA_NAME,
       {
-        lambdaFunction: dynamodbReadLambda,
+        functionName: this.constants.DYNAMODB_READ_LAMBDA_NAME,
+        runtime: lambda.Runtime.NODEJS_14_X,
+        handler: "dynamodbReader.handler",
+        code: lambda.Code.fromAsset("lambda"),
         assumedRolePolicyStatements: [readDynamoWithLeadingKeysPolicy],
-        assumedRoleArnEnvKey: this.constants.ASSUMED_ROLE_ARN_ENV_KEY_A,
+        assumedRoleArnEnvKey: this.constants.ASSUMED_ROLE_ARN_ENV_KEY_1,
         sessionTag: this.constants.TABLE_PARTITION_KEY,
       }
     );
@@ -69,17 +61,6 @@ export class AwsTenantIsolationStack extends Stack {
       bucketName: this.constants.S3_BUCKET_NAME,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
     });
-
-    const s3BucketReadLambda = new lambda.Function(
-      this,
-      this.constants.S3_BUCKET_READ_LAMBDA_NAME,
-      {
-        functionName: this.constants.S3_BUCKET_READ_LAMBDA_NAME,
-        runtime: lambda.Runtime.NODEJS_14_X,
-        handler: "b.handler",
-        code: lambda.Code.fromAsset("lambda"),
-      }
-    );
 
     const getBucketObjectWithPrefix = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -92,13 +73,16 @@ export class AwsTenantIsolationStack extends Stack {
       },
     });
 
-    new RoleAssumingLambda(
+    const s3BucketReadLambda = new RoleAssumingLambda(
       this,
-      `${this.stackName}S3BucketReaderRoleAssumingLambda`,
+      this.constants.S3_BUCKET_READ_LAMBDA_NAME,
       {
-        lambdaFunction: s3BucketReadLambda,
+        functionName: this.constants.S3_BUCKET_READ_LAMBDA_NAME,
+        runtime: lambda.Runtime.NODEJS_14_X,
+        handler: "s3BucketReader.handler",
+        code: lambda.Code.fromAsset("lambda"),
         assumedRolePolicyStatements: [getBucketObjectWithPrefix],
-        assumedRoleArnEnvKey: this.constants.ASSUMED_ROLE_ARN_ENV_KEY_B,
+        assumedRoleArnEnvKey: this.constants.ASSUMED_ROLE_ARN_ENV_KEY_2,
         sessionTag: this.constants.S3_BUCKET_NAME,
       }
     );

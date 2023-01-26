@@ -13,7 +13,7 @@ export const handler = async (
   const constants = getConstants();
   const s3BucketName = constants.S3_BUCKET_NAME;
 
-  if (!process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_B]) {
+  if (!process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_2]) {
     return {
       statusCode: 403,
       body: JSON.stringify({
@@ -21,7 +21,7 @@ export const handler = async (
       }),
     };
   }
-  const assumedRoleARN = process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_B];
+  const assumedRoleARN = process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_2];
 
   const tenantId = event.queryStringParameters?.["tenantId"];
   if (!tenantId) {

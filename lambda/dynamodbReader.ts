@@ -12,7 +12,7 @@ export const handler = async (
 
   const constants = getConstants();
 
-  if (!process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_A]) {
+  if (!process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_1]) {
     return {
       statusCode: 403,
       body: JSON.stringify({
@@ -20,7 +20,7 @@ export const handler = async (
       }),
     };
   }
-  const assumedRoleARN = process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_A];
+  const assumedRoleARN = process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_1];
 
   const tenantId = event.queryStringParameters?.["tenantId"];
   if (!tenantId) {
