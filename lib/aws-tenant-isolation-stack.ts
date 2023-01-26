@@ -49,9 +49,13 @@ export class AwsTenantIsolationStack extends Stack {
     dynamodbTable.grantWriteData(cfnEventHandler);
     s3Bucket.grantPut(cfnEventHandler);
 
-    const customResourceProvider = new cr.Provider(this, "", {
-      onEventHandler: cfnEventHandler,
-    });
+    const customResourceProvider = new cr.Provider(
+      this,
+      "DataInitializerCustomResourceProvider",
+      {
+        onEventHandler: cfnEventHandler,
+      }
+    );
     const customResource = new CustomResource(
       this,
       "DataInitializerCustomResource",
