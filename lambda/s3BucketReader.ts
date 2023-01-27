@@ -36,7 +36,7 @@ export const handler = async (
   const session = await sts.send(
     new AssumeRoleCommand({
       RoleArn: assumedRoleARN,
-      RoleSessionName: "TempSessionName",
+      RoleSessionName: "S3BucketReaderSession",
       DurationSeconds: 900,
       Tags: [
         {
@@ -70,6 +70,8 @@ export const handler = async (
       }),
     };
   } catch (error) {
+    console.log(error);
+
     return {
       statusCode: 403,
       body: JSON.stringify({ error }),

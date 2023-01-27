@@ -57,7 +57,7 @@ export class AwsTenantIsolationStack extends Stack {
         code: lambda.Code.fromAsset("lambda"),
         assumedRolePolicyStatements: [readDynamoWithLeadingKeysPolicy],
         assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_1,
-        sessionTag: constants.TABLE_PARTITION_KEY,
+        sessionTag: constants.SESSION_TAG_KEY,
       }
     );
 
@@ -84,7 +84,7 @@ export class AwsTenantIsolationStack extends Stack {
         code: lambda.Code.fromAsset("lambda"),
         assumedRolePolicyStatements: [writeDynamoWithLeadingKeysPolicy],
         assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_3,
-        sessionTag: constants.TABLE_PARTITION_KEY,
+        sessionTag: constants.SESSION_TAG_KEY,
       }
     );
 
@@ -109,7 +109,7 @@ export class AwsTenantIsolationStack extends Stack {
         code: lambda.Code.fromAsset("lambda"),
         assumedRolePolicyStatements: [getBucketObjectWithPrefix],
         assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_2,
-        sessionTag: constants.S3_BUCKET_NAME,
+        sessionTag: constants.SESSION_TAG_KEY,
       }
     );
 
