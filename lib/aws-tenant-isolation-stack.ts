@@ -4,8 +4,6 @@ import {
   aws_iam as iam,
   aws_lambda as lambda,
   aws_s3 as s3,
-  CustomResource,
-  custom_resources as cr,
   RemovalPolicy,
   Stack,
 } from "aws-cdk-lib";
@@ -35,36 +33,6 @@ export class AwsTenantIsolationStack extends Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
     });
     s3Bucket.applyRemovalPolicy(RemovalPolicy.DESTROY);
-
-    const cfnEventHandler = new lambda.Function(
-      this,
-      constants.CFN_EVENT_HANDLER_LAMBDA_NAME,
-      {
-        functionName: constants.CFN_EVENT_HANDLER_LAMBDA_NAME,
-        runtime: lambda.Runtime.NODEJS_14_X,
-        handler: "cfnEventHandler.handler",
-        code: lambda.Code.fromAsset("lambda"),
-      }
-    );
-    dynamodbTable.grantWriteData(cfnEventHandler);
-    s3Bucket.grantWrite(cfnEventHandler);
-
-    const customResourceProvider = new cr.Provider(
-      this,
-      "DataInitializerCustomResourceProvider",
-      {
-        onEventHandler: cfnEventHandler,
-        providerFunctionName:
-          constants.CFN_EVENT_HANDLER_LAMBDA_NAME + "Provider",
-      }
-    );
-    const customResource = new CustomResource(
-      this,
-      "DataInitializerCustomResource",
-      {
-        serviceToken: customResourceProvider.serviceToken,
-      }
-    );
 
     const readDynamoWithLeadingKeysPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
