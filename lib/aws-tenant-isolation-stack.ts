@@ -116,12 +116,9 @@ export class AwsTenantIsolationStack extends Stack {
     const putBucketObjectWithPrefix = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ["s3:PutObject"],
-      resources: [s3Bucket.bucketArn],
-      conditions: {
-        StringEquals: {
-          "s3:prefix": `\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}`,
-        },
-      },
+      resources: [
+        `${s3Bucket.bucketArn}/\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}/*`,
+      ],
     });
 
     const s3BucketWriteLambda = new RoleAssumingLambda(
@@ -134,7 +131,7 @@ export class AwsTenantIsolationStack extends Stack {
         code: lambda.Code.fromAsset("lambda"),
         assumedRolePolicyStatements: [putBucketObjectWithPrefix],
         assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_4,
-        sessionTag: constants.S3_BUCKET_NAME,
+        sessionTag: constants.SESSION_TAG_KEY,
       }
     );
 

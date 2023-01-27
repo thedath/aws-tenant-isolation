@@ -1,6 +1,6 @@
-import { Context, APIGatewayProxyResult, APIGatewayEvent } from "aws-lambda";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
+import { APIGatewayEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import constants from "./constants";
 
 export const handler = async (
