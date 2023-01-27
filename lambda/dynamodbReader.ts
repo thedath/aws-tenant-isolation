@@ -25,7 +25,7 @@ export const handler = async (
     return {
       statusCode: 403,
       body: JSON.stringify({
-        message: "Tenant ID need to passed",
+        message: "Tenant ID is required",
       }),
     };
   }
