@@ -1,20 +1,21 @@
-export default function getConstants(stackName = "") {
-  return {
-    DYNAMODB_READ_LAMBDA_NAME: `${stackName}ReadDynamodbLambda`,
-    S3_BUCKET_READ_LAMBDA_NAME: `${stackName}ReadS3BucketLambda`,
-    CFN_EVENT_HANDLER_LAMBDA_NAME: `${stackName}CfnEventHandler`,
-    ASSUMED_CFN_EVENT_HANDLER_ROLE_NAME: `${stackName}CfnEventHandlerRole`,
+export default {
+  DYNAMODB_READ_LAMBDA_NAME: "ReadDynamodbLambda",
+  DYNAMODB_WRITE_LAMBDA_NAME: "WriteDynamodbLambda",
+  S3_BUCKET_READ_LAMBDA_NAME: "ReadS3BucketLambda",
+  S3_BUCKET_WRITE_LAMBDA_NAME: "WriteS3BucketLambda",
+  CFN_EVENT_HANDLER_LAMBDA_NAME: "CfnEventHandler",
 
-    ASSUMED_ROLE_ARN_ENV_KEY_1: "DYNAMODB_READING_ROLE_ARN",
-    ASSUMED_ROLE_ARN_ENV_KEY_2: "S3_BUCKET_READING_ROLE_ARN",
+  ASSUMED_ROLE_ARN_ENV_KEY_1: "DYNAMODB_READING_ROLE_ARN",
+  ASSUMED_ROLE_ARN_ENV_KEY_2: "S3_BUCKET_READING_ROLE_ARN",
+  ASSUMED_ROLE_ARN_ENV_KEY_3: "DYNAMODB_WRITING_ROLE_ARN",
+  ASSUMED_ROLE_ARN_ENV_KEY_4: "S3_BUCKET_WRITING_ROLE_ARN",
 
-    SESSION_TAG_KEY: "TenantId",
-    SESSION_TAG_PRE_DEFINED_VALUE: "alpha",
+  SESSION_TAG_KEY: "TenantId",
+  SESSION_TAG_PRE_DEFINED_VALUE: "alpha",
 
-    TABLE_NAME: `${stackName}TestTable`,
-    TABLE_PARTITION_KEY: "TenantId",
-    TABLE_SORT_KEY: "Email",
+  TABLE_NAME: "TestTable",
+  TABLE_PARTITION_KEY: "TenantId",
+  TABLE_SORT_KEY: "Email",
 
-    S3_BUCKET_NAME: "tenantisolationtestbucket2023",
-  };
-}
+  S3_BUCKET_NAME: "tenantisolationtestbucket2023",
+};
