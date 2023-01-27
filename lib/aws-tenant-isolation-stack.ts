@@ -4,8 +4,6 @@ import {
   aws_iam as iam,
   aws_lambda as lambda,
   aws_s3 as s3,
-  CustomResource,
-  custom_resources as cr,
   RemovalPolicy,
   Stack,
 } from "aws-cdk-lib";
@@ -36,36 +34,6 @@ export class AwsTenantIsolationStack extends Stack {
     });
     s3Bucket.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
-    const cfnEventHandler = new lambda.Function(
-      this,
-      constants.CFN_EVENT_HANDLER_LAMBDA_NAME,
-      {
-        functionName: constants.CFN_EVENT_HANDLER_LAMBDA_NAME,
-        runtime: lambda.Runtime.NODEJS_14_X,
-        handler: "cfnEventHandler.handler",
-        code: lambda.Code.fromAsset("lambda"),
-      }
-    );
-    dynamodbTable.grantWriteData(cfnEventHandler);
-    s3Bucket.grantWrite(cfnEventHandler);
-
-    const customResourceProvider = new cr.Provider(
-      this,
-      "DataInitializerCustomResourceProvider",
-      {
-        onEventHandler: cfnEventHandler,
-        providerFunctionName:
-          constants.CFN_EVENT_HANDLER_LAMBDA_NAME + "Provider",
-      }
-    );
-    const customResource = new CustomResource(
-      this,
-      "DataInitializerCustomResource",
-      {
-        serviceToken: customResourceProvider.serviceToken,
-      }
-    );
-
     const readDynamoWithLeadingKeysPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ["dynamodb:Query"],
@@ -89,7 +57,34 @@ export class AwsTenantIsolationStack extends Stack {
         code: lambda.Code.fromAsset("lambda"),
         assumedRolePolicyStatements: [readDynamoWithLeadingKeysPolicy],
         assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_1,
-        sessionTag: constants.TABLE_PARTITION_KEY,
+        sessionTag: constants.SESSION_TAG_KEY,
+      }
+    );
+
+    const writeDynamoWithLeadingKeysPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["dynamodb:PutItem"],
+      resources: [dynamodbTable.tableArn],
+      conditions: {
+        "ForAllValues:StringLike": {
+          "dynamodb:LeadingKeys": [
+            `\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}`,
+          ],
+        },
+      },
+    });
+
+    const dynamodbWriteLambda = new RoleAssumingLambda(
+      this,
+      constants.DYNAMODB_WRITE_LAMBDA_NAME,
+      {
+        functionName: constants.DYNAMODB_WRITE_LAMBDA_NAME,
+        runtime: lambda.Runtime.NODEJS_14_X,
+        handler: "dynamodbWriter.handler",
+        code: lambda.Code.fromAsset("lambda"),
+        assumedRolePolicyStatements: [writeDynamoWithLeadingKeysPolicy],
+        assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_3,
+        sessionTag: constants.SESSION_TAG_KEY,
       }
     );
 
@@ -114,7 +109,29 @@ export class AwsTenantIsolationStack extends Stack {
         code: lambda.Code.fromAsset("lambda"),
         assumedRolePolicyStatements: [getBucketObjectWithPrefix],
         assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_2,
-        sessionTag: constants.S3_BUCKET_NAME,
+        sessionTag: constants.SESSION_TAG_KEY,
+      }
+    );
+
+    const putBucketObjectWithPrefix = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["s3:PutObject"],
+      resources: [
+        `${s3Bucket.bucketArn}/\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}/*`,
+      ],
+    });
+
+    const s3BucketWriteLambda = new RoleAssumingLambda(
+      this,
+      constants.S3_BUCKET_WRITE_LAMBDA_NAME,
+      {
+        functionName: constants.S3_BUCKET_WRITE_LAMBDA_NAME,
+        runtime: lambda.Runtime.NODEJS_14_X,
+        handler: "s3BucketWriter.handler",
+        code: lambda.Code.fromAsset("lambda"),
+        assumedRolePolicyStatements: [putBucketObjectWithPrefix],
+        assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_4,
+        sessionTag: constants.SESSION_TAG_KEY,
       }
     );
 
@@ -127,9 +144,19 @@ export class AwsTenantIsolationStack extends Stack {
       .getResource("readDynamodb")
       ?.addMethod("GET", new apiGateway.LambdaIntegration(dynamodbReadLambda));
 
+    api.root.addResource("writeDynamodb");
+    api.root
+      .getResource("writeDynamodb")
+      ?.addMethod("GET", new apiGateway.LambdaIntegration(dynamodbWriteLambda));
+
     api.root.addResource("readS3Bucket");
     api.root
       .getResource("readS3Bucket")
       ?.addMethod("GET", new apiGateway.LambdaIntegration(s3BucketReadLambda));
+
+    api.root.addResource("writeS3Bucket");
+    api.root
+      .getResource("writeS3Bucket")
+      ?.addMethod("GET", new apiGateway.LambdaIntegration(s3BucketWriteLambda));
   }
 }

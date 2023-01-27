@@ -25,7 +25,7 @@ export const handler = async (
     return {
       statusCode: 403,
       body: JSON.stringify({
-        message: "Tenant ID need to passed",
+        message: "Tenant ID is required",
       }),
     };
   }
@@ -34,7 +34,7 @@ export const handler = async (
   const session = await sts.send(
     new AssumeRoleCommand({
       RoleArn: assumedRoleARN,
-      RoleSessionName: "TempSessionName",
+      RoleSessionName: "DynamoDBReaderSession",
       DurationSeconds: 900,
       Tags: [
         {
@@ -78,6 +78,8 @@ export const handler = async (
       }),
     };
   } catch (error) {
+    console.log(error);
+
     return {
       statusCode: 403,
       body: JSON.stringify({ error }),

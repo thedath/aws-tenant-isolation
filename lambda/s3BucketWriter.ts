@@ -1,6 +1,6 @@
-import { Context, APIGatewayProxyResult, APIGatewayEvent } from "aws-lambda";
-import { S3Client, ListObjectsCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
+import { APIGatewayEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import constants from "./constants";
 
 export const handler = async (
@@ -12,7 +12,7 @@ export const handler = async (
 
   const s3BucketName = constants.S3_BUCKET_NAME;
 
-  if (!process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_2]) {
+  if (!process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_4]) {
     return {
       statusCode: 403,
       body: JSON.stringify({
@@ -20,7 +20,8 @@ export const handler = async (
       }),
     };
   }
-  const assumedRoleARN = process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_2];
+  const assumedRoleARN = process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_4];
+  console.log("assumedRoleARN: ", assumedRoleARN);
 
   const tenantId = event.queryStringParameters?.["tenantId"];
   if (!tenantId) {
@@ -32,11 +33,31 @@ export const handler = async (
     };
   }
 
+  const fileName = event.queryStringParameters?.["fileName"];
+  if (!fileName) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({
+        message: "File name is required",
+      }),
+    };
+  }
+
+  const text = event.queryStringParameters?.["text"];
+  if (!text) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({
+        message: "Text is required",
+      }),
+    };
+  }
+
   const sts = new STSClient({});
   const session = await sts.send(
     new AssumeRoleCommand({
       RoleArn: assumedRoleARN,
-      RoleSessionName: "S3BucketReaderSession",
+      RoleSessionName: "S3BucketWriterSession",
       DurationSeconds: 900,
       Tags: [
         {
@@ -57,9 +78,10 @@ export const handler = async (
 
   try {
     const result = await s3Client.send(
-      new ListObjectsCommand({
+      new PutObjectCommand({
         Bucket: s3BucketName,
-        Prefix: tenantId,
+        Key: `${tenantId}/${fileName}`,
+        Body: text,
       })
     );
 
