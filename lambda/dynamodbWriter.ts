@@ -32,7 +32,7 @@ export const handler = async (
     }
 
     const email = event.queryStringParameters?.["email"];
-    if (!tenantId) {
+    if (!email) {
       return {
         statusCode: 403,
         body: JSON.stringify({

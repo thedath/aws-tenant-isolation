@@ -33,7 +33,7 @@ export const handler = async (
   }
 
   const fileName = event.queryStringParameters?.["fileName"];
-  if (!tenantId) {
+  if (!fileName) {
     return {
       statusCode: 403,
       body: JSON.stringify({
@@ -43,7 +43,7 @@ export const handler = async (
   }
 
   const text = event.queryStringParameters?.["text"];
-  if (!tenantId) {
+  if (!text) {
     return {
       statusCode: 403,
       body: JSON.stringify({
