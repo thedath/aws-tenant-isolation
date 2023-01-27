@@ -93,6 +93,33 @@ export class AwsTenantIsolationStack extends Stack {
       }
     );
 
+    const writeDynamoWithLeadingKeysPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["dynamodb:PutItem"],
+      resources: [dynamodbTable.tableArn],
+      conditions: {
+        "ForAllValues:StringLike": {
+          "dynamodb:LeadingKeys": [
+            `\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}`,
+          ],
+        },
+      },
+    });
+
+    const dynamodbWriteLambda = new RoleAssumingLambda(
+      this,
+      constants.DYNAMODB_WRITE_LAMBDA_NAME,
+      {
+        functionName: constants.DYNAMODB_WRITE_LAMBDA_NAME,
+        runtime: lambda.Runtime.NODEJS_14_X,
+        handler: "dynamodbWriter.handler",
+        code: lambda.Code.fromAsset("lambda"),
+        assumedRolePolicyStatements: [writeDynamoWithLeadingKeysPolicy],
+        assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_3,
+        sessionTag: constants.TABLE_PARTITION_KEY,
+      }
+    );
+
     const getBucketObjectWithPrefix = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ["s3:ListBucket"],
@@ -118,6 +145,31 @@ export class AwsTenantIsolationStack extends Stack {
       }
     );
 
+    const putBucketObjectWithPrefix = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["s3:PutObject"],
+      resources: [s3Bucket.bucketArn],
+      conditions: {
+        StringEquals: {
+          "s3:prefix": `\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}`,
+        },
+      },
+    });
+
+    const s3BucketWriteLambda = new RoleAssumingLambda(
+      this,
+      constants.S3_BUCKET_WRITE_LAMBDA_NAME,
+      {
+        functionName: constants.S3_BUCKET_WRITE_LAMBDA_NAME,
+        runtime: lambda.Runtime.NODEJS_14_X,
+        handler: "s3BucketWriter.handler",
+        code: lambda.Code.fromAsset("lambda"),
+        assumedRolePolicyStatements: [putBucketObjectWithPrefix],
+        assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_4,
+        sessionTag: constants.S3_BUCKET_NAME,
+      }
+    );
+
     const api = new apiGateway.RestApi(this, `${this.stackName}API`, {
       restApiName: `${this.stackName}API`,
     });
@@ -127,9 +179,19 @@ export class AwsTenantIsolationStack extends Stack {
       .getResource("readDynamodb")
       ?.addMethod("GET", new apiGateway.LambdaIntegration(dynamodbReadLambda));
 
+    api.root.addResource("writeDynamodb");
+    api.root
+      .getResource("writeDynamodb")
+      ?.addMethod("GET", new apiGateway.LambdaIntegration(dynamodbWriteLambda));
+
     api.root.addResource("readS3Bucket");
     api.root
       .getResource("readS3Bucket")
       ?.addMethod("GET", new apiGateway.LambdaIntegration(s3BucketReadLambda));
+
+    api.root.addResource("writeS3Bucket");
+    api.root
+      .getResource("writeS3Bucket")
+      ?.addMethod("GET", new apiGateway.LambdaIntegration(s3BucketWriteLambda));
   }
 }
