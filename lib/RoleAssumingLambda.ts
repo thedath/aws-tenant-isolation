@@ -40,14 +40,14 @@ export default class RoleAssumingLambda extends lambda.Function {
 
     if (this.props.sessionTag) {
       const taggableLambdaPrincipal = new iam.SessionTagsPrincipal(
-        lambdaPrincipal
+        lambdaPrincipal.withConditions({
+          StringLike: {
+            [`aws:RequestTag/${this.props.sessionTag}`]: "*",
+          },
+        })
       );
 
-      return taggableLambdaPrincipal.withConditions({
-        StringLike: {
-          [`aws:RequestTag/${this.props.sessionTag}`]: "*",
-        },
-      });
+      return taggableLambdaPrincipal;
     }
 
     return lambdaPrincipal;
