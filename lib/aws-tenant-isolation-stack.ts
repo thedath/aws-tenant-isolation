@@ -42,6 +42,7 @@ export class AwsTenantIsolationStack extends Stack {
         "ForAllValues:StringLike": {
           "dynamodb:LeadingKeys": [
             `\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}`,
+            "public",
           ],
         },
       },
@@ -93,8 +94,11 @@ export class AwsTenantIsolationStack extends Stack {
       actions: ["s3:ListBucket"],
       resources: [s3Bucket.bucketArn],
       conditions: {
-        StringEquals: {
-          "s3:prefix": `\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}`,
+        "ForAllValues:StringLike": {
+          "s3:prefix": [
+            `\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}`,
+            "public",
+          ],
         },
       },
     });

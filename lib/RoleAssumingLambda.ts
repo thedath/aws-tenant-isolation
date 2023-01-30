@@ -43,13 +43,11 @@ export default class RoleAssumingLambda extends lambda.Function {
         lambdaPrincipal
       );
 
-      taggableLambdaPrincipal.withConditions({
+      return taggableLambdaPrincipal.withConditions({
         StringLike: {
           [`aws:RequestTag/${this.props.sessionTag}`]: "*",
         },
       });
-
-      return taggableLambdaPrincipal;
     }
 
     return lambdaPrincipal;
