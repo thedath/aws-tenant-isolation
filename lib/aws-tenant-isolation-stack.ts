@@ -43,7 +43,7 @@ export class AwsTenantIsolationStack extends Stack {
     const readLambda = new RoleAssumingLambda(this, "TableReadingLambda", {
       functionName: "TableReadingLambda",
       runtime: lambda.Runtime.NODEJS_14_X,
-      handler: "dynamodbReader.handler",
+      handler: "reader.handler",
       code: lambda.Code.fromAsset("lambda"),
       assumedRolePolicyStatements: [readPolicy],
       assumedRoleArnEnvKey: "TABLE_READ_ASSUMED_ROLE",
@@ -71,7 +71,7 @@ export class AwsTenantIsolationStack extends Stack {
     const writeLambda = new RoleAssumingLambda(this, "TableWritingLambda", {
       functionName: "TableWritingLambda",
       runtime: lambda.Runtime.NODEJS_14_X,
-      handler: "dynamodbWriter.handler",
+      handler: "writer.handler",
       code: lambda.Code.fromAsset("lambda"),
       assumedRolePolicyStatements: [writePolicy],
       assumedRoleArnEnvKey: "TABLE_WRITE_ASSUMED_ROLE",
