@@ -4,7 +4,7 @@ import { aws_lambda as lambda, aws_iam as iam } from "aws-cdk-lib";
 export interface RoleAssumingLambdaProps extends lambda.FunctionProps {
   assumedRolePolicyStatements: iam.PolicyStatement[];
   assumedRoleArnEnvKey: string;
-  sessionTag?: string;
+  sessionTags?: string[];
 }
 
 export default class RoleAssumingLambda extends lambda.Function {
@@ -38,12 +38,15 @@ export default class RoleAssumingLambda extends lambda.Function {
   private _getLambdaPrincipal(): iam.IPrincipal {
     const lambdaPrincipal = new iam.ArnPrincipal(this.role?.roleArn!);
 
-    if (this.props.sessionTag) {
+    if (this.props.sessionTags) {
+      const StringLike: { [key: string]: "*" } = {};
+      this.props.sessionTags.forEach((tag) => {
+        StringLike[`aws:RequestTag/${tag}`] = "*";
+      });
+
       const taggableLambdaPrincipal = new iam.SessionTagsPrincipal(
         lambdaPrincipal.withConditions({
-          StringLike: {
-            [`aws:RequestTag/${this.props.sessionTag}`]: "*",
-          },
+          StringLike,
         })
       );
 

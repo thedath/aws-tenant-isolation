@@ -3,164 +3,92 @@ import {
   aws_dynamodb as dynamodb,
   aws_iam as iam,
   aws_lambda as lambda,
-  aws_s3 as s3,
   RemovalPolicy,
   Stack,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import constants from "../lambda/constants";
 import RoleAssumingLambda from "./RoleAssumingLambda";
 
 export class AwsTenantIsolationStack extends Stack {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
-    const dynamodbTable = new dynamodb.Table(this, constants.TABLE_NAME, {
-      tableName: constants.TABLE_NAME,
-      partitionKey: {
-        name: constants.TABLE_PARTITION_KEY,
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: constants.TABLE_SORT_KEY,
-        type: dynamodb.AttributeType.STRING,
-      },
+    // table configuration
+    const table = new dynamodb.Table(this, "OrgTable", {
+      tableName: "OrgTable",
+      partitionKey: { name: "OrgPartK1", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "OrgSortK1", type: dynamodb.AttributeType.STRING },
     });
-    dynamodbTable.applyRemovalPolicy(RemovalPolicy.DESTROY);
-
-    const s3Bucket = new s3.Bucket(this, constants.S3_BUCKET_NAME, {
-      bucketName: constants.S3_BUCKET_NAME,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+    table.addGlobalSecondaryIndex({
+      indexName: "OrgTableIndex",
+      partitionKey: { name: "OrgPartK12", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "OrgSortK2", type: dynamodb.AttributeType.STRING },
     });
-    s3Bucket.applyRemovalPolicy(RemovalPolicy.DESTROY);
+    table.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
-    const readDynamoWithLeadingKeysPolicy = new iam.PolicyStatement({
+    // read lambda configuration
+    const readPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ["dynamodb:Query"],
-      resources: [dynamodbTable.tableArn],
+      resources: [table.tableArn],
       conditions: {
         "ForAllValues:StringLike": {
-          "dynamodb:LeadingKeys": [
-            `\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}`,
-            "public",
-          ],
+          "dynamodb:LeadingKeys": ["${aws:PrincipalTag/OrgPartK1}/*"],
+        },
+        "ForAllValues:StringEquals": {
+          "dynamodb:Attributes": ["OrgPartK1", "OrgSortK1"],
         },
       },
     });
+    const readLambda = new RoleAssumingLambda(this, "TableReadingLambda", {
+      functionName: "TableReadingLambda",
+      runtime: lambda.Runtime.NODEJS_14_X,
+      handler: "dynamodbReader.handler",
+      code: lambda.Code.fromAsset("lambda"),
+      assumedRolePolicyStatements: [readPolicy],
+      assumedRoleArnEnvKey: "TABLE_READ_ASSUMED_ROLE",
+      sessionTags: ["OrgPartK1", "OrgPartK2"],
+    });
 
-    const dynamodbReadLambda = new RoleAssumingLambda(
-      this,
-      constants.DYNAMODB_READ_LAMBDA_NAME,
-      {
-        functionName: constants.DYNAMODB_READ_LAMBDA_NAME,
-        runtime: lambda.Runtime.NODEJS_14_X,
-        handler: "dynamodbReader.handler",
-        code: lambda.Code.fromAsset("lambda"),
-        assumedRolePolicyStatements: [readDynamoWithLeadingKeysPolicy],
-        assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_1,
-        sessionTag: constants.SESSION_TAG_KEY,
-      }
-    );
-
-    const writeDynamoWithLeadingKeysPolicy = new iam.PolicyStatement({
+    // write lambda configuration
+    const writePolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ["dynamodb:PutItem"],
-      resources: [dynamodbTable.tableArn],
+      resources: [table.tableArn],
       conditions: {
         "ForAllValues:StringLike": {
           "dynamodb:LeadingKeys": [
-            `\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}`,
+            "${aws:PrincipalTag/OrgPartK1}",
+            "${aws:PrincipalTag/OrgPartK1}/*",
+            "${aws:PrincipalTag/OrgPartK1}/*/alpha",
           ],
+        },
+        "ForAllValues:StringEquals": {
+          "dynamodb:Attributes": ["TenantId", "Email", "UserName", "UserHobby"],
         },
       },
     });
-
-    const dynamodbWriteLambda = new RoleAssumingLambda(
-      this,
-      constants.DYNAMODB_WRITE_LAMBDA_NAME,
-      {
-        functionName: constants.DYNAMODB_WRITE_LAMBDA_NAME,
-        runtime: lambda.Runtime.NODEJS_14_X,
-        handler: "dynamodbWriter.handler",
-        code: lambda.Code.fromAsset("lambda"),
-        assumedRolePolicyStatements: [writeDynamoWithLeadingKeysPolicy],
-        assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_3,
-        sessionTag: constants.SESSION_TAG_KEY,
-      }
-    );
-
-    const getBucketObjectWithPrefix = new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ["s3:ListBucket"],
-      resources: [s3Bucket.bucketArn],
-      conditions: {
-        "ForAllValues:StringLike": {
-          "s3:prefix": [
-            `\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}`,
-            "public",
-          ],
-        },
-      },
+    const writeLambda = new RoleAssumingLambda(this, "TableWritingLambda", {
+      functionName: "TableWritingLambda",
+      runtime: lambda.Runtime.NODEJS_14_X,
+      handler: "dynamodbWriter.handler",
+      code: lambda.Code.fromAsset("lambda"),
+      assumedRolePolicyStatements: [writePolicy],
+      assumedRoleArnEnvKey: "TABLE_WRITE_ASSUMED_ROLE",
+      sessionTags: ["asd"],
     });
 
-    const s3BucketReadLambda = new RoleAssumingLambda(
-      this,
-      constants.S3_BUCKET_READ_LAMBDA_NAME,
-      {
-        functionName: constants.S3_BUCKET_READ_LAMBDA_NAME,
-        runtime: lambda.Runtime.NODEJS_14_X,
-        handler: "s3BucketReader.handler",
-        code: lambda.Code.fromAsset("lambda"),
-        assumedRolePolicyStatements: [getBucketObjectWithPrefix],
-        assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_2,
-        sessionTag: constants.SESSION_TAG_KEY,
-      }
-    );
-
-    const putBucketObjectWithPrefix = new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ["s3:PutObject"],
-      resources: [
-        `${s3Bucket.bucketArn}/\${aws:PrincipalTag/${constants.SESSION_TAG_KEY}}/*`,
-      ],
-    });
-
-    const s3BucketWriteLambda = new RoleAssumingLambda(
-      this,
-      constants.S3_BUCKET_WRITE_LAMBDA_NAME,
-      {
-        functionName: constants.S3_BUCKET_WRITE_LAMBDA_NAME,
-        runtime: lambda.Runtime.NODEJS_14_X,
-        handler: "s3BucketWriter.handler",
-        code: lambda.Code.fromAsset("lambda"),
-        assumedRolePolicyStatements: [putBucketObjectWithPrefix],
-        assumedRoleArnEnvKey: constants.ASSUMED_ROLE_ARN_ENV_KEY_4,
-        sessionTag: constants.SESSION_TAG_KEY,
-      }
-    );
-
+    // API configurations
     const api = new apiGateway.RestApi(this, `${this.stackName}API`, {
       restApiName: `${this.stackName}API`,
     });
-
-    api.root.addResource("readDynamodb");
+    api.root.addResource("read");
     api.root
-      .getResource("readDynamodb")
-      ?.addMethod("GET", new apiGateway.LambdaIntegration(dynamodbReadLambda));
-
-    api.root.addResource("writeDynamodb");
+      .getResource("read")
+      ?.addMethod("POST", new apiGateway.LambdaIntegration(readLambda));
+    api.root.addResource("write");
     api.root
-      .getResource("writeDynamodb")
-      ?.addMethod("GET", new apiGateway.LambdaIntegration(dynamodbWriteLambda));
-
-    api.root.addResource("readS3Bucket");
-    api.root
-      .getResource("readS3Bucket")
-      ?.addMethod("GET", new apiGateway.LambdaIntegration(s3BucketReadLambda));
-
-    api.root.addResource("writeS3Bucket");
-    api.root
-      .getResource("writeS3Bucket")
-      ?.addMethod("GET", new apiGateway.LambdaIntegration(s3BucketWriteLambda));
+      .getResource("write")
+      ?.addMethod("POST", new apiGateway.LambdaIntegration(writeLambda));
   }
 }

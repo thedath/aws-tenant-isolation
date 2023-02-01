@@ -1,7 +1,6 @@
-import { Context, APIGatewayProxyResult, APIGatewayEvent } from "aws-lambda";
 import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
-import constants from "./constants";
+import { APIGatewayEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 
 export const handler = async (
   event: APIGatewayEvent,
@@ -11,17 +10,12 @@ export const handler = async (
   console.log(`Context: ${JSON.stringify(context, null, 2)}`);
 
   try {
-    if (!process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_3]) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({
-          message: "Access role not found",
-        }),
-      };
-    }
-    const assumedRoleARN = process.env[constants.ASSUMED_ROLE_ARN_ENV_KEY_3];
+    const assumedRoleARN = process.env.TABLE_WRITE_ASSUMED_ROLE!;
 
-    const tenantId = event.queryStringParameters?.["tenantId"];
+    const { tenantId, email, ...rest } = event.queryStringParameters as {
+      [key: string]: string;
+    };
+
     if (!tenantId) {
       return {
         statusCode: 403,
@@ -31,7 +25,6 @@ export const handler = async (
       };
     }
 
-    const email = event.queryStringParameters?.["email"];
     if (!email) {
       return {
         statusCode: 403,
@@ -45,12 +38,16 @@ export const handler = async (
     const session = await sts.send(
       new AssumeRoleCommand({
         RoleArn: assumedRoleARN,
-        RoleSessionName: "DynamoDBWriterSession",
+        RoleSessionName: "TableWriterSession",
         DurationSeconds: 900,
         Tags: [
           {
-            Key: constants.SESSION_TAG_KEY,
-            Value: constants.SESSION_TAG_PRE_DEFINED_VALUE,
+            Key: "OrgPartK1",
+            Value: "",
+          },
+          {
+            Key: "OrgPartK2",
+            Value: "",
           },
         ],
       })
@@ -64,30 +61,23 @@ export const handler = async (
       },
     });
 
-    const tableName = constants.TABLE_NAME;
+    const items: { [key: string]: { S: string } } = {};
+    Object.keys(rest).forEach((key) => {
+      items[key] = { S: rest[key]! };
+    });
 
     const result = await dynamoDb.send(
       new PutItemCommand({
-        TableName: tableName,
-        Item: {
-          [constants.TABLE_PARTITION_KEY]: { S: tenantId! },
-          [constants.TABLE_SORT_KEY]: { S: email! },
-        },
+        TableName: "OrgTable",
+        Item: { ...items },
+        ReturnValues: "",
       })
     );
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        ...result,
-      }),
-    };
+    return { statusCode: 200, body: JSON.stringify({ ...result }) };
   } catch (error) {
     console.log(error);
 
-    return {
-      statusCode: 403,
-      body: JSON.stringify({ error }),
-    };
+    return { statusCode: 403, body: JSON.stringify({ error }) };
   }
 };
