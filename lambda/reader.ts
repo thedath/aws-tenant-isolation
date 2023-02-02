@@ -9,36 +9,36 @@ export const handler = async (
   console.log(`Event: ${JSON.stringify(event, null, 2)}`);
   console.log(`Context: ${JSON.stringify(context, null, 2)}`);
 
-  const assumedRoleARN = process.env.TABLE_READ_ASSUMED_ROLE!;
-
-  const sts = new STSClient({});
-  const session = await sts.send(
-    new AssumeRoleCommand({
-      RoleArn: assumedRoleARN,
-      RoleSessionName: "TableReaderSession",
-      DurationSeconds: 900,
-      Tags: [
-        {
-          Key: "OrgPartK1",
-          Value: "",
-        },
-        {
-          Key: "OrgPartK2",
-          Value: "",
-        },
-      ],
-    })
-  );
-
-  const dynamoDb = new DynamoDBClient({
-    credentials: {
-      accessKeyId: session.Credentials?.AccessKeyId!,
-      secretAccessKey: session.Credentials?.SecretAccessKey!,
-      sessionToken: session.Credentials?.SessionToken,
-    },
-  });
-
   try {
+    const assumedRoleARN = process.env.TABLE_READ_ASSUMED_ROLE!;
+
+    const sts = new STSClient({});
+    const session = await sts.send(
+      new AssumeRoleCommand({
+        RoleArn: assumedRoleARN,
+        RoleSessionName: "TableReaderSession",
+        DurationSeconds: 900,
+        Tags: [
+          {
+            Key: "OrgPartK1",
+            Value: "",
+          },
+          {
+            Key: "OrgPartK2",
+            Value: "",
+          },
+        ],
+      })
+    );
+
+    const dynamoDb = new DynamoDBClient({
+      credentials: {
+        accessKeyId: session.Credentials?.AccessKeyId!,
+        secretAccessKey: session.Credentials?.SecretAccessKey!,
+        sessionToken: session.Credentials?.SessionToken,
+      },
+    });
+
     const result = await dynamoDb.send(
       new QueryCommand({
         TableName: "OrgTable",
